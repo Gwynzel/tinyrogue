@@ -21,8 +21,8 @@
 ;Line Spacing 1.0, uncheck Add 10pt space between paragraphs
 ;Wordpad: landscape, print both sides, flip on short edge
 ;
-;ml /c /coff labXX.asm
-;link /SUBSYSTEM:WINDOWS labXX
+;ml /c /coff tr.asm
+;link /SUBSYSTEM:WINDOWS tr
 ;
 ;Line 278 mystery
 ;
