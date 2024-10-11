@@ -1,0 +1,4 @@
+
+This project was developed using the MASM32 SDK, all usage needs to adhere to the requirements of the MASM32 license at https://masm32.com/licence.htm
+
+The purpose of this project was for learning assembly language programming and contains experimental code.  Use at your own risk!

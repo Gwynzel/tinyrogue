@@ -1,1 +1,1 @@
-# tinyrogue
+It was back in 80's when I was still in grade school, a buddy of mine showed me a text based, turn based game called Rogue, running on an IBM PC XT clone with an amber monochrome monitor.  I wanted to create a real-time version of the game and I always wanted to learn assembly programming as well, so why not do both simultaneously!  Huge huge thanks goes to MASM32, Iczelion's Win32 Assembly tutorials and Tom Swan's book Mastering Turbo Assembler for making assembly programming so much less daunting.
