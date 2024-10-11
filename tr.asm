@@ -1,4 +1,5 @@
-;12/5/16
+;tinyrogue
+;12/8/16
 ;
 ;TODO:
 ;       WORK ON PURSUIT, SNEAKING & BACKSTABBING CODE
@@ -19,12 +20,10 @@
 ;Font: Consolas 9pt
 ;Line Spacing 1.0, uncheck Add 10pt space between paragraphs
 ;Wordpad: landscape, print both sides, flip on short edge
+;
 ;ml /c /coff labXX.asm
 ;link /SUBSYSTEM:WINDOWS labXX
 ;
-;WARNING: Firing this weapon will alert all zombies within a 1 mile radius of your location.
-;               You have 4,823 rounds of ammo left.  Do you wish to proceed?  
-;                            Type YES to confirm: _____
 ;Line 278 mystery
 ;
 ;pWorldTable    coords from (0,0) to (4 Billion,4 Billion)
@@ -103,7 +102,6 @@ DiceRoll4 PROTO :DWORD
 Combat PROTO :DWORD,:DWORD
 VisibilityCk PROTO :DWORD,:DWORD
 PlayMp3File PROTO :DWORD,:DWORD
-Area2bmpname PROTO :DWORD
 ScrBinCk PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD,:DWORD
 CramEAX PROTO :DWORD,:DWORD
 
@@ -196,6 +194,9 @@ WndProc proc hWnd:HWND,uMsg:UINT,wParam:WPARAM,lParam:LPARAM
         add eax,BitmapInfo.biSizeImage
         mov BitmapFile.bfSize,eax
 
+        invoke CreateDIBSection,hdc,ADDR BitmapInfo,DIB_RGB_COLORS,ADDR pBitmapBits,0,0
+        mov BackgroundBMP,eax
+
         invoke PostMessage,hWnd,WM_CREATEWORLD,NULL,NULL
 
     .elseif uMsg==WM_CREATEWORLD
@@ -280,10 +281,6 @@ WndProc proc hWnd:HWND,uMsg:UINT,wParam:WPARAM,lParam:LPARAM
         mov esi,pLocalTabCurr
         invoke CreateNewArea,hWnd,NULL,NULL,NULL,NULL
 
-        invoke Area2bmpname,1
-        mov INITBACKGROUND,1
-        mov PAINT_BACKGROUND,1
-
         invoke PostMessage,hWnd,WM_CHAR,NULL,NULL   ;display our very first area
     
     .elseif uMsg==WM_SIZE 
@@ -309,83 +306,8 @@ WndProc proc hWnd:HWND,uMsg:UINT,wParam:WPARAM,lParam:LPARAM
         invoke CreateCompatibleDC,hdc
         mov hdcCOPY,eax
 
-        ;Create, Load, or Use Current Background
+        invoke SelectObject,hdcCOPY,BackgroundBMP
 
-        .if(INITBACKGROUND==1)  
-            invoke DeleteObject,BackgroundBMP
-            invoke CreateDIBSection,hdc,ADDR BitmapInfo,DIB_RGB_COLORS,ADDR pBitmapBits,0,0
-            mov BackgroundBMP,eax
-    
-            invoke SelectObject,hdcCOPY,BackgroundBMP
-
-            invoke SelectObject,hdcCOPY,tinyFont15x12
-        
-            RGB 0,0,0
-            invoke SetBkColor,hdcCOPY,eax
-            
-            mov esi,OFFSET Bg_stones
-            mov BgYscr,0
-            mov ebx,wWin
-            .REPEAT
-                mov BgXscr,0
-                .REPEAT
-                    invoke nrandom,256
-                    mov ah,0        ; blue
-;                    mov al, green   ; green
-                    rol eax, 8
-                    mov al,0        ; red
-                    invoke SetTextColor,hdcCOPY,eax
-
-                    invoke nrandom,9
-                    lea eax,[esi+eax]   
-                    
-                    invoke TextOut,hdcCOPY,BgXscr,BgYscr,eax,1
-                    add BgXscr,TINYFONT15x12W
-                .UNTIL(BgXscr>=ebx)
-                add BgYscr,TINYFONT15x12H
-                mov eax,hWin
-                sub eax,TINYFONT15x12H
-            .UNTIL(BgYscr>=eax)
-
-            invoke CreateFile,  ADDR Bgbmpfile,
-                                GENERIC_READ or GENERIC_WRITE,
-                                0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL
-            mov hFile,eax
-            invoke WriteFile,hFile, ADDR BitmapFile,
-                                    sizeof BITMAPFILEHEADER,
-                                    ADDR wfbytes,NULL
-            invoke WriteFile,hFile, ADDR BitmapInfo,
-                                    sizeof BITMAPINFOHEADER,
-                                    ADDR wfbytes,NULL
-            invoke WriteFile,hFile, pBitmapBits,
-                                    BitmapInfo.biSizeImage,
-                                    ADDR wfbytes,
-                                    NULL
-            invoke CloseHandle,hFile
-
-            inc INITBACKGROUND
-
-            jmp @F
-            
-        .elseif(INITBACKGROUND==2)
-          @@:  
-            invoke DeleteObject,BackgroundBMP
-            invoke LoadImage,hInstance,ADDR Bgbmpfile,IMAGE_BITMAP,NULL,NULL,LR_LOADFROMFILE
-            mov BackgroundBMP,eax
-            invoke SelectObject,hdcCOPY,BackgroundBMP
-
-            inc INITBACKGROUND
-
-        .else   
-            invoke SelectObject,hdcCOPY,BackgroundBMP
-
-        .endif            
-
-        .if (PAINT_BACKGROUND>0)
-            invoke BitBlt,hdc,0,0,wWin,hWin,hdcCOPY,0,0,SRCCOPY
-            mov PAINT_BACKGROUND,0
-        .endif
-        
         .if (PAINT_CHAR>0)                  ;PAINT_CHAR==idx# to mob/obj's X,Y in MobsTable
             mov esi,pMobsCurr
             mov DWORD ptr edi,PAINT_CHAR
@@ -803,10 +725,6 @@ invoke TextOut,hdc,eax,ecx,OFFSET Wall_char,1
                         mov edi,pWorldTable     ;we found an existing area
                         mov [edi+4],esi         ;update active area #
 
-                        invoke Area2bmpname,esi
-                        mov INITBACKGROUND,2
-                        mov PAINT_BACKGROUND,1
-                        
                         push esi
                         pop eax            
                         shl eax,16          
@@ -843,10 +761,6 @@ invoke TextOut,hdc,eax,ecx,OFFSET Wall_char,1
                         inc eax
                         mov [edi],eax       ;update # areas
                         mov [edi+4],eax     ;active area==new area we're about to add
-
-                        invoke Area2bmpname,eax
-                        mov INITBACKGROUND,1
-                        mov PAINT_BACKGROUND,1
 
                         push eax            
                         shl eax,16          
@@ -908,10 +822,8 @@ invoke TextOut,hdc,eax,ecx,OFFSET Wall_char,1
                 invoke CramEAX,CharX,CharY
                 mov esi,pMobsCurr
                 mov [esi+8],eax
-                mov INITBACKGROUND,3
             .endif   
-;        .endif
-        
+       
         @@: 
             mov PAINT_CHAR,1        ;idx# of self in LocalTable
             invoke InvalidateRect,hWnd,ADDR XYrc,FALSE
@@ -1529,12 +1441,12 @@ CreateNewArea PROC USES eax ebx ecx edx esi edi hWnd:HWND,RoomW:DWORD,RoomH:DWOR
                 .else
                     add RoomX,FONT1W
                 .endif
-                invoke nrandom,2    ;jagged walls
-                .if(eax==0)
-                    dec RoomY
-                .else
-                    inc RoomY                
-                .endif
+;                invoke nrandom,2    ;jagged walls
+;                .if(eax==0)
+;                    dec RoomY
+;                .else
+;                    inc RoomY                
+;                .endif
                 invoke CramEAX,RoomX,RoomY
                 mov [esi+(edi*8)],eax           ;save X|Y
                 invoke HeapAlloc,hTable,NULL,96 
@@ -1558,12 +1470,12 @@ CreateNewArea PROC USES eax ebx ecx edx esi edi hWnd:HWND,RoomW:DWORD,RoomH:DWOR
                 .else
                     add RoomY,FONT1H
                 .endif
-                invoke nrandom,2    ;jagged walls
-                .if(eax==0)
-                    dec RoomX
-                .else
-                    inc RoomX                
-                .endif
+;                invoke nrandom,2    ;jagged walls
+;                .if(eax==0)
+;                    dec RoomX
+;                .else
+;                    inc RoomX                
+;                .endif
                 invoke CramEAX,RoomX,RoomY
                 mov [esi+(edi*8)],eax           ;save X|Y
                 invoke HeapAlloc,hTable,NULL,96 
@@ -2355,19 +2267,6 @@ PlayMp3File PROC hWnd:DWORD,NameOfFile:DWORD
     invoke mciSendCommand,Mp3DeviceID,MCI_PLAY,MCI_NOTIFY,ADDR mciPlayParms
     ret  
 PlayMp3File ENDP
-
-Area2bmpname PROC USES edi esi eax ecx AreaNum:DWORD
-    invoke dwtoa,AreaNum,ADDR Bgbmpfile
-    mov edi,OFFSET Bgbmpfile
-    .REPEAT
-        inc edi
-    .UNTIL(BYTE ptr[edi]==0)
-    mov esi,OFFSET bmpext
-    mov ecx,5
-    cld
-    rep movsb
-    ret
-Area2bmpname ENDP
 
 ScrBinCk PROC USES ebx esi edi BitX:DWORD,BitY:DWORD,BitW:DWORD,BitH:DWORD,FontW:DWORD,FontH:DWORD
 ;   IN:     Mob/Object X,Y
